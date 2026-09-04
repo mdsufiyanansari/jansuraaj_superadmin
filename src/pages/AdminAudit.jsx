@@ -1,550 +1,585 @@
 import { useEffect, useState } from "react";
 import PageFrame, { Panel } from "../components/PageFrame";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const API_URL = "http://localhost:4000";
 
 export default function AdminAudit() {
   // ==================================
-  // Ward Heads
+  // Ward Head States
   // ==================================
 
-  const [wardHeads, setWardHeads] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [pendingWardHeads, setPendingWardHeads] = useState([]);
 
-  const [message, setMessage] = useState("");
+  const [approvedWardHeads, setApprovedWardHeads] = useState([]);
+
+  const [rejectedWardHeads, setRejectedWardHeads] = useState([]);
+
+  // ==================================
+  // Loading States
+  // ==================================
+
+  const [loadingPending, setLoadingPending] = useState(true);
+
+  const [loadingApproved, setLoadingApproved] = useState(true);
+
+  const [loadingRejected, setLoadingRejected] = useState(true);
+
+  // ==================================
+  // Action Loading
+  // ==================================
+
+  const [actionLoading, setActionLoading] = useState(null);
+
+  // ==================================
+  // Error State
+  // ==================================
+
   const [error, setError] = useState("");
-
-  const [processingId, setProcessingId] =
-    useState(null);
 
   // ==================================
   // Fetch Pending Ward Heads
+  // GET
+  // /api/super-admin/ward-heads?status=pending
   // ==================================
 
   const fetchPendingWardHeads = async () => {
     try {
-      setLoading(true);
-      setError("");
+      setLoadingPending(true);
 
       const response = await fetch(
-        `${BACKEND_URL}/api/super-admin/ward-heads/pending`,
+        `${API_URL}/api/super-admin/ward-heads?status=pending`,
         {
-          method: "GET",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
           credentials: "include",
         }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         throw new Error(
-          data.message ||
-            "Unable to load Ward Head requests"
+          data.message || "Unable to fetch pending Ward Head requests"
         );
       }
 
-      setWardHeads(
-        data.wardHeads || []
-      );
+      setPendingWardHeads(data.wardHeads || []);
     } catch (error) {
-      console.error(
-        "Fetch Pending Ward Heads Error:",
-        error
-      );
+      console.error("Pending Ward Heads Error:", error);
 
-      setError(
-        error.message ||
-          "Unable to load Ward Head requests"
-      );
+      setError(error.message);
     } finally {
-      setLoading(false);
+      setLoadingPending(false);
     }
   };
 
   // ==================================
-  // Load Data
+  // Fetch Approved Ward Heads
+  // GET
+  // /api/super-admin/ward-heads?status=approved
   // ==================================
 
+  const fetchApprovedWardHeads = async () => {
+    try {
+      setLoadingApproved(true);
+
+      const response = await fetch(
+        `${API_URL}/api/super-admin/ward-heads?status=approved`,
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to fetch approved Ward Heads");
+      }
+
+      setApprovedWardHeads(data.wardHeads || []);
+    } catch (error) {
+      console.error("Approved Ward Heads Error:", error);
+
+      setError(error.message);
+    } finally {
+      setLoadingApproved(false);
+    }
+  };
+
+  // ==================================
+  // Fetch Rejected Ward Heads
+  // GET
+  // /api/super-admin/ward-heads?status=rejected
+  // ==================================
+
+  const fetchRejectedWardHeads = async () => {
+    try {
+      setLoadingRejected(true);
+
+      const response = await fetch(
+        `${API_URL}/api/super-admin/ward-heads?status=rejected`,
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to fetch rejected Ward Heads");
+      }
+
+      setRejectedWardHeads(data.wardHeads || []);
+    } catch (error) {
+      console.error("Rejected Ward Heads Error:", error);
+
+      setError(error.message);
+    } finally {
+      setLoadingRejected(false);
+    }
+  };
+
+  // ==================================
+  // Load All Ward Head Data
+  // ==================================
+
+  const fetchAllWardHeads = async () => {
+    setError("");
+
+    await Promise.all([
+      fetchPendingWardHeads(),
+      fetchApprovedWardHeads(),
+      fetchRejectedWardHeads(),
+    ]);
+  };
+
   useEffect(() => {
-    fetchPendingWardHeads();
+    fetchAllWardHeads();
   }, []);
 
   // ==================================
   // Approve Ward Head
+  // PATCH
+  // /api/super-admin/ward-heads/:id/approve
   // ==================================
 
-  const handleApprove = async (id) => {
+  const handleApprove = async (wardHead) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to approve ${wardHead.name}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
-      setProcessingId(id);
       setError("");
-      setMessage("");
+
+      setActionLoading(`approve-${wardHead._id}`);
 
       const response = await fetch(
-        `${BACKEND_URL}/api/super-admin/ward-heads/${id}/approve`,
+        `${API_URL}/api/super-admin/ward-heads/${wardHead._id}/approve`,
         {
           method: "PATCH",
 
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
 
           credentials: "include",
         }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Unable to approve Ward Head"
-        );
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to approve Ward Head");
       }
 
-      setMessage(
-        data.message ||
-          "Ward Head approved successfully"
-      );
+      // ==================================
+      // Refresh All Lists
+      // ==================================
 
-      // Remove approved Ward Head
-      // from pending list
-
-      setWardHeads((previous) =>
-        previous.filter(
-          (wardHead) =>
-            wardHead._id !== id
-        )
-      );
+      await fetchAllWardHeads();
     } catch (error) {
-      console.error(
-        "Approve Ward Head Error:",
-        error
-      );
+      console.error("Approve Ward Head Error:", error);
 
-      setError(
-        error.message ||
-          "Unable to approve Ward Head"
-      );
+      setError(error.message);
     } finally {
-      setProcessingId(null);
+      setActionLoading(null);
     }
   };
 
   // ==================================
   // Reject Ward Head
+  // PATCH
+  // /api/super-admin/ward-heads/:id/reject
   // ==================================
 
-  const handleReject = async (id) => {
-    const rejectionReason =
-      window.prompt(
-        "Enter rejection reason"
-      );
+  const handleReject = async (wardHead) => {
+    const rejectionReason = window.prompt(
+      `Enter rejection reason for ${wardHead.name}:`
+    );
 
-    if (
-      rejectionReason === null
-    ) {
-      return;
-    }
-
-    if (
-      !rejectionReason.trim()
-    ) {
-      setError(
-        "Rejection reason is required"
-      );
-
+    if (rejectionReason === null) {
       return;
     }
 
     try {
-      setProcessingId(id);
-
       setError("");
-      setMessage("");
+
+      setActionLoading(`reject-${wardHead._id}`);
 
       const response = await fetch(
-        `${BACKEND_URL}/api/super-admin/ward-heads/${id}/reject`,
+        `${API_URL}/api/super-admin/ward-heads/${wardHead._id}/reject`,
         {
           method: "PATCH",
 
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
 
           credentials: "include",
 
           body: JSON.stringify({
-            rejectionReason:
-              rejectionReason.trim(),
+            rejectionReason: rejectionReason.trim(),
           }),
         }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Unable to reject Ward Head"
-        );
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to reject Ward Head");
       }
 
-      setMessage(
-        data.message ||
-          "Ward Head rejected successfully"
-      );
+      // ==================================
+      // Refresh All Lists
+      // ==================================
 
-      // Remove rejected Ward Head
-      // from pending list
-
-      setWardHeads((previous) =>
-        previous.filter(
-          (wardHead) =>
-            wardHead._id !== id
-        )
-      );
+      await fetchAllWardHeads();
     } catch (error) {
-      console.error(
-        "Reject Ward Head Error:",
-        error
-      );
+      console.error("Reject Ward Head Error:", error);
 
-      setError(
-        error.message ||
-          "Unable to reject Ward Head"
-      );
+      setError(error.message);
     } finally {
-      setProcessingId(null);
+      setActionLoading(null);
     }
+  };
+
+  // ==================================
+  // Date Format
+  // ==================================
+
+  const formatDate = (date) => {
+    if (!date) {
+      return "N/A";
+    }
+
+    return new Date(date).toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  // ==================================
+  // Initials
+  // ==================================
+
+  const getInitials = (name) => {
+    if (!name) {
+      return "WH";
+    }
+
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
   };
 
   return (
     <PageFrame
       title="Admin & Audit"
-      description="Manage access, Ward Head approvals and administrative activity."
+      description="Manage Ward Head approvals and review administrative actions."
       action="＋ Invite admin"
     >
       {/* ================================== */}
-      {/* Success Message */}
-      {/* ================================== */}
-
-      {message && (
-        <div className="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-          {message}
-        </div>
-      )}
-
-      {/* ================================== */}
-      {/* Error Message */}
+      {/* Error */}
       {/* ================================== */}
 
       {error && (
-        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
           {error}
         </div>
       )}
 
       {/* ================================== */}
-      {/* Ward Head Approval Panel */}
+      {/* Pending Ward Head Requests */}
       {/* ================================== */}
 
       <Panel
-        title="Ward Head Approval Requests"
-        subtitle="Review pending Ward Head registration requests."
+        title="Pending Ward Head Requests"
+        subtitle={`Total pending requests: ${pendingWardHeads.length}`}
       >
-        {/* ================================== */}
-        {/* Header */}
-        {/* ================================== */}
-
-        <div className="mb-5 flex flex-col gap-3 border-b border-slate-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-slate-800">
-              Pending Requests
-            </p>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Super Admin approval is required before Ward Heads can access the admin panel.
-            </p>
+        {loadingPending ? (
+          <div className="py-8 text-center text-sm text-slate-400">
+            Loading pending Ward Head requests...
           </div>
-
-          <div className="rounded-full bg-amber-50 px-4 py-2 text-sm font-bold text-amber-700">
-            {wardHeads.length} Pending
+        ) : pendingWardHeads.length === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-400">
+            No pending Ward Head requests.
           </div>
-        </div>
-
-        {/* ================================== */}
-        {/* Loading */}
-        {/* ================================== */}
-
-        {loading && (
-          <div className="py-10 text-center text-sm text-slate-400">
-            Loading Ward Head requests...
-          </div>
-        )}
-
-        {/* ================================== */}
-        {/* Empty State */}
-        {/* ================================== */}
-
-        {!loading &&
-          wardHeads.length === 0 && (
-            <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center">
-              <p className="text-sm font-semibold text-slate-600">
-                No pending Ward Head requests
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                New registration requests will appear here.
-              </p>
-            </div>
-          )}
-
-        {/* ================================== */}
-        {/* Ward Head List */}
-        {/* ================================== */}
-
-        <div className="space-y-4">
-          {wardHeads.map(
-            (wardHead) => (
+        ) : (
+          <div className="space-y-4">
+            {pendingWardHeads.map((wardHead) => (
               <div
                 key={wardHead._id}
-                className="rounded-2xl border border-slate-200 bg-white p-5"
+                className="flex flex-col gap-4 border-b border-slate-100 pb-4 last:border-b-0 md:flex-row md:items-center"
               >
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                {/* Profile */}
 
-                  {/* ============================== */}
-                  {/* Ward Head Details */}
-                  {/* ============================== */}
-
-                  <div className="flex items-start gap-4">
-
-                    {/* Avatar */}
-
-                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#e5f4f0] text-sm font-bold text-[#08776d]">
-                      {wardHead.name
-                        ?.split(" ")
-                        .map(
-                          (word) =>
-                            word[0]
-                        )
-                        .join("")
-                        .slice(0, 2)}
+                <div className="flex items-center gap-3">
+                  {wardHead.photo ? (
+                    <img
+                      src={wardHead.photo}
+                      alt={wardHead.name}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-10 w-10 place-items-center rounded-full bg-amber-100 text-sm font-bold text-amber-600">
+                      {getInitials(wardHead.name)}
                     </div>
+                  )}
 
-                    <div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {wardHead.name}
+                    </p>
 
-                      {/* Name */}
-
-                      <h3 className="text-sm font-bold text-slate-900">
-                        {wardHead.name}
-                      </h3>
-
-                      {/* Phone */}
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        📞 {wardHead.phone}
-                      </p>
-
-                      {/* Location */}
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-
-                        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                          {wardHead.district}
-                        </span>
-
-                        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                          {wardHead.areaType}
-                        </span>
-
-                        {wardHead.localBody && (
-                          <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                            {wardHead.localBody}
-                          </span>
-                        )}
-
-                        {wardHead.block && (
-                          <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                            {wardHead.block}
-                          </span>
-                        )}
-
-                        {wardHead.panchayat && (
-                          <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                            {wardHead.panchayat}
-                          </span>
-                        )}
-
-                        <span className="rounded-lg bg-[#e5f4f0] px-2.5 py-1 text-[11px] font-semibold text-[#08776d]">
-                          {wardHead.ward}
-                        </span>
-
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ============================== */}
-                  {/* Actions */}
-                  {/* ============================== */}
-
-                  <div className="flex gap-3">
-
-                    {/* Reject */}
-
-                    <button
-                      type="button"
-
-                      onClick={() =>
-                        handleReject(
-                          wardHead._id
-                        )
-                      }
-
-                      disabled={
-                        processingId ===
-                        wardHead._id
-                      }
-
-                      className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {processingId ===
-                      wardHead._id
-                        ? "Processing..."
-                        : "Reject"}
-                    </button>
-
-                    {/* Approve */}
-
-                    <button
-                      type="button"
-
-                      onClick={() =>
-                        handleApprove(
-                          wardHead._id
-                        )
-                      }
-
-                      disabled={
-                        processingId ===
-                        wardHead._id
-                      }
-
-                      className="rounded-xl bg-[#08776d] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#06655d] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {processingId ===
-                      wardHead._id
-                        ? "Processing..."
-                        : "Approve"}
-                    </button>
-
+                    <p className="text-xs text-slate-400">{wardHead.phone}</p>
                   </div>
                 </div>
+
+                {/* Location */}
+
+                <div className="flex-1">
+                  <p className="text-sm text-slate-600">
+                    {wardHead.district}
+
+                    {wardHead.block && ` • ${wardHead.block}`}
+
+                    {wardHead.panchayat && ` • ${wardHead.panchayat}`}
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Ward: {wardHead.ward || "N/A"}
+                  </p>
+                </div>
+
+                {/* Status */}
+
+                <div className="flex flex-col items-start gap-2 md:items-end">
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-600">
+                    Pending
+                  </span>
+
+                  <time className="text-xs text-slate-400">
+                    {formatDate(wardHead.createdAt)}
+                  </time>
+                </div>
+
+                {/* Actions */}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleApprove(wardHead)}
+                    disabled={actionLoading === `approve-${wardHead._id}`}
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {actionLoading === `approve-${wardHead._id}`
+                      ? "Approving..."
+                      : "Approve"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleReject(wardHead)}
+                    disabled={actionLoading === `reject-${wardHead._id}`}
+                    className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {actionLoading === `reject-${wardHead._id}`
+                      ? "Rejecting..."
+                      : "Reject"}
+                  </button>
+                </div>
               </div>
-            )
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </Panel>
 
       {/* ================================== */}
-      {/* Audit Log */}
+      {/* Approved Ward Heads */}
       {/* ================================== */}
 
       <div className="mt-6">
-
         <Panel
-          title="Audit Log"
-          subtitle="Recent administrative actions"
+          title="Approved Ward Heads"
+          subtitle={`Total approved Ward Heads: ${approvedWardHeads.length}`}
         >
-          <div className="space-y-4">
-
-            {[
-              [
-                "Rahul Kumar",
-                "Changed Issue #1021",
-                "Pending → Resolved",
-                "10:31 AM",
-              ],
-
-              [
-                "Amit Verma",
-                "Updated User #812",
-                "Mobile number changed",
-                "10:12 AM",
-              ],
-
-              [
-                "Neha Singh",
-                "Exported issue report",
-                "Bihar · August 2026",
-                "09:45 AM",
-              ],
-
-              [
-                "Rahul Kumar",
-                "Assigned Ward 07",
-                "Operator: Suresh Paswan",
-                "Yesterday",
-              ],
-            ].map(
-              (
-                [
-                  admin,
-                  action,
-                  detail,
-                  time,
-                ]
-              ) => (
+          {loadingApproved ? (
+            <div className="py-8 text-center text-sm text-slate-400">
+              Loading approved Ward Heads...
+            </div>
+          ) : approvedWardHeads.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-400">
+              No approved Ward Heads found.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {approvedWardHeads.map((wardHead) => (
                 <div
-                  key={
-                    time +
-                    action
-                  }
-
-                  className="flex items-center gap-4 border-b border-slate-100 pb-4"
+                  key={wardHead._id}
+                  className="flex flex-col gap-4 border-b border-slate-100 pb-4 last:border-b-0 md:flex-row md:items-center"
                 >
-                  <div className="grid h-9 w-9 place-items-center rounded-full bg-[#e5f4f0] text-xs font-bold text-[#08776d]">
-                    {admin
-                      .split(" ")
-                      .map(
-                        (word) =>
-                          word[0]
-                      )
-                      .join("")}
+                  {/* Profile */}
+
+                  <div className="flex items-center gap-3">
+                    {wardHead.photo ? (
+                      <img
+                        src={wardHead.photo}
+                        alt={wardHead.name}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-10 w-10 place-items-center rounded-full bg-[#e5f4f0] text-sm font-bold text-[#08776d]">
+                        {getInitials(wardHead.name)}
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {wardHead.name}
+                      </p>
+
+                      <p className="text-xs text-slate-400">{wardHead.phone}</p>
+                    </div>
                   </div>
 
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold">
-                      {admin}{" "}
+                  {/* Location */}
 
-                      <span className="font-normal text-slate-500">
-                        {action}
-                      </span>
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-600">
+                      {wardHead.district}
+
+                      {wardHead.block && ` • ${wardHead.block}`}
+
+                      {wardHead.panchayat && ` • ${wardHead.panchayat}`}
                     </p>
 
                     <p className="text-xs text-slate-400">
-                      {detail}
+                      Ward: {wardHead.ward || "N/A"}
                     </p>
                   </div>
 
-                  <time className="text-xs text-slate-400">
-                    {time}
-                  </time>
-                </div>
-              )
-            )}
+                  {/* Status */}
 
-          </div>
+                  <div className="flex flex-col items-start gap-1 md:items-end">
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-600">
+                      Approved
+                    </span>
+
+                    <time className="text-xs text-slate-400">
+                      {formatDate(wardHead.updatedAt)}
+                    </time>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      {/* ================================== */}
+      {/* Rejected Ward Heads */}
+      {/* ================================== */}
+
+      <div className="mt-6">
+        <Panel
+          title="Rejected Ward Heads"
+          subtitle={`Total rejected Ward Heads: ${rejectedWardHeads.length}`}
+        >
+          {loadingRejected ? (
+            <div className="py-8 text-center text-sm text-slate-400">
+              Loading rejected Ward Heads...
+            </div>
+          ) : rejectedWardHeads.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-400">
+              No rejected Ward Heads found.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {rejectedWardHeads.map((wardHead) => (
+                <div
+                  key={wardHead._id}
+                  className="flex flex-col gap-4 border-b border-slate-100 pb-4 last:border-b-0 md:flex-row md:items-center"
+                >
+                  {/* Profile */}
+
+                  <div className="flex items-center gap-3">
+                    {wardHead.photo ? (
+                      <img
+                        src={wardHead.photo}
+                        alt={wardHead.name}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-10 w-10 place-items-center rounded-full bg-rose-100 text-sm font-bold text-rose-600">
+                        {getInitials(wardHead.name)}
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {wardHead.name}
+                      </p>
+
+                      <p className="text-xs text-slate-400">{wardHead.phone}</p>
+                    </div>
+                  </div>
+
+                  {/* Location and Reason */}
+
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-600">
+                      {wardHead.district}
+
+                      {wardHead.block && ` • ${wardHead.block}`}
+
+                      {wardHead.panchayat && ` • ${wardHead.panchayat}`}
+                    </p>
+
+                    <p className="mt-1 text-xs text-rose-500">
+                      Reason: {wardHead.rejectionReason || "No reason provided"}
+                    </p>
+                  </div>
+
+                  {/* Status */}
+
+                  <div className="flex flex-col items-start gap-1 md:items-end">
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-600">
+                      Rejected
+                    </span>
+
+                    <time className="text-xs text-slate-400">
+                      {formatDate(wardHead.updatedAt)}
+                    </time>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Panel>
       </div>
     </PageFrame>
