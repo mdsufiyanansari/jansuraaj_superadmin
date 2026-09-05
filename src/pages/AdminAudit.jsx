@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import PageFrame, { Panel } from "../components/PageFrame";
 
-const API_URL = "http://localhost:4000";
+const API_URL = import.meta.env.VITE_BACKEND_URL;
 
 export default function AdminAudit() {
   // ==================================
