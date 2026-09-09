@@ -12,16 +12,18 @@ export default function Issues() {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   // ==========================================
   // FETCH ISSUES FROM BACKEND
   // GET /api/admin/problems
   // ==========================================
 
   useEffect(() => {
-    const fetchIssues = async () => {
+    const fetchIssues = async (showLoading = false) => {
       try {
-        setLoading(true);
+        if (showLoading) {
+          setLoading(true);
+        }
+
         setError("");
 
         const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -31,19 +33,14 @@ export default function Issues() {
           return;
         }
 
-        const response = await axios.get(
-          `${backendUrl}/api/admin/problems`,
-          {
-            withCredentials: true,
-          }
-        );
+        const response = await axios.get(`${backendUrl}/api/admin/problems`, {
+          withCredentials: true,
+        });
 
         if (response.data?.success) {
           setIssues(response.data.problems || []);
         } else {
-          setError(
-            response.data?.message || "Failed to load issues."
-          );
+          setError(response.data?.message || "Failed to load issues.");
         }
       } catch (error) {
         console.error(
@@ -51,16 +48,36 @@ export default function Issues() {
           error.response?.data || error.message
         );
 
-        setError(
-          error.response?.data?.message ||
-            "Failed to load issues."
-        );
+        setError(error.response?.data?.message || "Failed to load issues.");
       } finally {
-        setLoading(false);
+        if (showLoading) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchIssues();
+    // ==========================================
+    // FIRST LOAD
+    // ==========================================
+
+    fetchIssues(true);
+
+    // ==========================================
+    // AUTO REFRESH STATUS
+    // Every 5 seconds
+    // ==========================================
+
+    const interval = setInterval(() => {
+      fetchIssues(false);
+    }, 5000);
+
+    // ==========================================
+    // CLEANUP
+    // ==========================================
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   // ==========================================
@@ -70,13 +87,11 @@ export default function Issues() {
   const totalIssues = issues.length;
 
   const pendingIssues = issues.filter(
-    (issue) =>
-      String(issue.status || "").toLowerCase() === "pending"
+    (issue) => String(issue.status || "").toLowerCase() === "pending"
   ).length;
 
   const resolvedIssues = issues.filter(
-    (issue) =>
-      String(issue.status || "").toLowerCase() === "resolved"
+    (issue) => String(issue.status || "").toLowerCase() === "resolved"
   ).length;
 
   // ==========================================
@@ -111,32 +126,18 @@ export default function Issues() {
       ====================================== */}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat
-          label="Total issues"
-          value={totalIssues}
-          change=""
-        />
+        <Stat label="Total issues" value={totalIssues} change="" />
 
-        <Stat
-          label="Pending"
-          value={pendingIssues}
-          change=""
-        />
+        <Stat label="Pending" value={pendingIssues} change="" />
 
-        <Stat
-          label="Resolved"
-          value={resolvedIssues}
-        />
+        <Stat label="Resolved" value={resolvedIssues} />
       </div>
 
       {/* ======================================
           ISSUE QUEUE
       ====================================== */}
 
-      <Panel
-        title="Issue queue"
-        subtitle="Prioritise and assign work"
-      >
+      <Panel title="Issue queue" subtitle="Prioritise and assign work">
         {/* ====================================
             FILTER BUTTONS
         ==================================== */}
@@ -164,29 +165,21 @@ export default function Issues() {
         ==================================== */}
 
         {loading && (
-          <div className="mt-5 text-sm text-slate-500">
-            Loading issues...
-          </div>
+          <div className="mt-5 text-sm text-slate-500">Loading issues...</div>
         )}
 
         {/* ====================================
             ERROR
         ==================================== */}
 
-        {error && (
-          <div className="mt-5 text-sm text-red-600">
-            {error}
-          </div>
-        )}
+        {error && <div className="mt-5 text-sm text-red-600">{error}</div>}
 
         {/* ====================================
             NO ISSUES
         ==================================== */}
 
         {!loading && !error && issues.length === 0 && (
-          <div className="mt-5 text-sm text-slate-500">
-            No issues found.
-          </div>
+          <div className="mt-5 text-sm text-slate-500">No issues found.</div>
         )}
 
         {/* ====================================
@@ -205,10 +198,7 @@ export default function Issues() {
                 ========================= */}
 
                 <span className="text-xs font-bold text-slate-400">
-                  #
-                  {issue._id
-                    ? issue._id.slice(-6)
-                    : index + 1}
+                  #{issue._id ? issue._id.slice(-6) : index + 1}
                 </span>
 
                 {/* =========================
@@ -220,20 +210,14 @@ export default function Issues() {
                   {/* TITLE */}
 
                   <div className="font-semibold">
-                    {issue.category ||
-                      issue.title ||
-                      "Unknown issue"}
+                    {issue.category || issue.title || "Unknown issue"}
 
                     {/* LOCATION */}
 
                     <small className="ml-2 font-normal text-slate-400">
-                      {issue.ward
-                        ? `Ward ${issue.ward}`
-                        : ""}
+                      {issue.ward ? `Ward ${issue.ward}` : ""}
 
-                      {issue.district
-                        ? ` · ${issue.district}`
-                        : ""}
+                      {issue.district ? ` · ${issue.district}` : ""}
                     </small>
                   </div>
 
@@ -250,10 +234,7 @@ export default function Issues() {
                   {/* ISSUE DATE & TIME */}
 
                   <p className="mt-2 text-xs text-slate-400">
-                    Reported on{" "}
-                    {formatIssueDateTime(
-                      issue.createdAt
-                    )}
+                    Reported on {formatIssueDateTime(issue.createdAt)}
                   </p>
                 </div>
 
@@ -288,9 +269,7 @@ export default function Issues() {
                     ARROW
                 ========================= */}
 
-                <span className="text-slate-300">
-                  ›
-                </span>
+                <span className="text-slate-300">›</span>
               </div>
             ))}
           </div>
