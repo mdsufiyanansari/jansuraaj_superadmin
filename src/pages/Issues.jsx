@@ -12,6 +12,15 @@ export default function Issues() {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // ==========================================
+// DELETE ISSUE STATE
+// ==========================================
+
+const [deleteIssue, setDeleteIssue] = useState(null);
+const [deletionReason, setDeletionReason] = useState("");
+const [deleteLoading, setDeleteLoading] = useState(false);
+const [deleteError, setDeleteError] = useState("");
   // ==========================================
   // FETCH ISSUES FROM BACKEND
   // GET /api/admin/problems
@@ -110,6 +119,86 @@ export default function Issues() {
       hour12: true,
     });
   };
+
+  // ==========================================
+// DELETE ISSUE
+// DELETE /api/admin/problems/:id
+// ==========================================
+
+const handleDeleteIssue = async () => {
+  if (!deleteIssue?._id) {
+    return;
+  }
+
+  if (!deletionReason.trim()) {
+    setDeleteError("Please enter a deletion reason.");
+    return;
+  }
+
+  try {
+    setDeleteLoading(true);
+    setDeleteError("");
+
+    const backendUrl =
+      import.meta.env.VITE_BACKEND_URL;
+
+    if (!backendUrl) {
+      setDeleteError(
+        "Backend URL is not configured."
+      );
+      return;
+    }
+
+    const response = await axios.delete(
+      `${backendUrl}/api/admin/problems/${deleteIssue._id}`,
+      {
+        data: {
+          deletionReason: deletionReason.trim(),
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (response.data?.success) {
+      // ======================================
+      // REMOVE FROM CURRENT LIST
+      // ======================================
+
+      setIssues((currentIssues) =>
+        currentIssues.filter(
+          (issue) =>
+            issue._id !== deleteIssue._id
+        )
+      );
+
+      // ======================================
+      // CLOSE MODAL
+      // ======================================
+
+      setDeleteIssue(null);
+      setDeletionReason("");
+      setDeleteError("");
+    } else {
+      setDeleteError(
+        response.data?.message ||
+          "Failed to delete issue."
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Delete issue error:",
+      error.response?.data ||
+        error.message
+    );
+
+    setDeleteError(
+      error.response?.data?.message ||
+        "Failed to delete issue."
+    );
+  } finally {
+    setDeleteLoading(false);
+  }
+};
 
   // ==========================================
   // UI
@@ -265,6 +354,18 @@ export default function Issues() {
                   View Details
                 </Link>
 
+                <button
+  type="button"
+  onClick={() => {
+    setDeleteIssue(issue);
+    setDeletionReason("");
+    setDeleteError("");
+  }}
+  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+>
+  🗑 Delete
+</button>
+
                 {/* =========================
                     ARROW
                 ========================= */}
@@ -275,6 +376,132 @@ export default function Issues() {
           </div>
         )}
       </Panel>
+  {/* ==========================================
+    DELETE CONFIRMATION MODAL
+========================================== */}
+
+{deleteIssue && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+
+      {/* HEADER */}
+
+      <div className="flex items-start gap-4">
+
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-50 text-xl">
+          🗑️
+        </div>
+
+        <div>
+          <h2 className="text-lg font-bold text-slate-800">
+            Delete Issue
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Are you sure you want to remove this issue?
+          </p>
+        </div>
+
+      </div>
+
+      {/* ISSUE INFO */}
+
+      <div className="mt-5 rounded-xl bg-slate-50 p-4">
+
+        <p className="text-xs font-bold text-slate-400">
+          ISSUE
+        </p>
+
+        <p className="mt-1 font-semibold text-slate-800">
+          {deleteIssue.category ||
+            deleteIssue.title ||
+            "Unknown issue"}
+        </p>
+
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          {deleteIssue.description ||
+            "No description provided"}
+        </p>
+
+      </div>
+
+      {/* REASON */}
+
+      <div className="mt-5">
+
+        <label
+          htmlFor="deletion-reason"
+          className="mb-2 block text-sm font-medium text-slate-700"
+        >
+          Reason for deletion
+        </label>
+
+        <textarea
+          id="deletion-reason"
+          value={deletionReason}
+          onChange={(e) => {
+            setDeletionReason(e.target.value);
+            setDeleteError("");
+          }}
+          rows={3}
+          maxLength={500}
+          placeholder="Enter reason for deleting this issue..."
+          className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
+        />
+
+        <p className="mt-1 text-right text-xs text-slate-400">
+          {deletionReason.length}/500
+        </p>
+
+      </div>
+
+      {/* ERROR */}
+
+      {deleteError && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {deleteError}
+        </div>
+      )}
+
+      {/* BUTTONS */}
+
+      <div className="mt-6 flex justify-end gap-3">
+
+        <button
+          type="button"
+          disabled={deleteLoading}
+          onClick={() => {
+            setDeleteIssue(null);
+            setDeletionReason("");
+            setDeleteError("");
+          }}
+          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          disabled={
+            deleteLoading ||
+            !deletionReason.trim()
+          }
+          onClick={handleDeleteIssue}
+          className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {deleteLoading
+            ? "Deleting..."
+            : "Delete Issue"}
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
+
     </PageFrame>
   );
 }
