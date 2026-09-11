@@ -117,19 +117,16 @@ function UserRow({ user, index }) {
     .filter(Boolean)
     .join(", ");
 
- const joined = user.createdAt
-  ? new Date(user.createdAt).toLocaleString(
-      "en-IN",
-      {
+  const joined = user.createdAt
+    ? new Date(user.createdAt).toLocaleString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
-      }
-    )
-  : "-";
+      })
+    : "-";
   return (
     <tr
       className="animate-fade-in border-b border-slate-50 opacity-0 transition hover:bg-brand-50/50"
@@ -243,8 +240,12 @@ export default function Users() {
         // USERS API + PROBLEMS API
         // ======================================
         const [usersResponse, problemsResponse] = await Promise.all([
-          axios.get(`${backendUrl}/api/admin/users`),
-          axios.get(`${backendUrl}/api/admin/problems`),
+          axios.get(`${backendUrl}/api/admin/users`, {
+            withCredentials: true,
+          }),
+          axios.get(`${backendUrl}/api/admin/problems`, {
+            withCredentials: true,
+          }),
         ]);
 
         // ======================================
