@@ -14,13 +14,13 @@ export default function Issues() {
   const [error, setError] = useState("");
 
   // ==========================================
-// DELETE ISSUE STATE
-// ==========================================
+  // DELETE ISSUE STATE
+  // ==========================================
 
-const [deleteIssue, setDeleteIssue] = useState(null);
-const [deletionReason, setDeletionReason] = useState("");
-const [deleteLoading, setDeleteLoading] = useState(false);
-const [deleteError, setDeleteError] = useState("");
+  const [deleteIssue, setDeleteIssue] = useState(null);
+  const [deletionReason, setDeletionReason] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   // ==========================================
   // FETCH ISSUES FROM BACKEND
   // GET /api/admin/problems
@@ -90,16 +90,24 @@ const [deleteError, setDeleteError] = useState("");
   }, []);
 
   // ==========================================
+  // ACTIVE + DELETED ISSUES
+  // ==========================================
+
+  const activeIssues = issues.filter((issue) => !issue.isDeleted);
+
+  const deletedIssues = issues.filter((issue) => issue.isDeleted);
+
+  // ==========================================
   // REAL ISSUE COUNTS
   // ==========================================
 
-  const totalIssues = issues.length;
+  const totalIssues = activeIssues.length;
 
-  const pendingIssues = issues.filter(
+  const pendingIssues = activeIssues.filter(
     (issue) => String(issue.status || "").toLowerCase() === "pending"
   ).length;
 
-  const resolvedIssues = issues.filter(
+  const resolvedIssues = activeIssues.filter(
     (issue) => String(issue.status || "").toLowerCase() === "resolved"
   ).length;
 
@@ -121,84 +129,81 @@ const [deleteError, setDeleteError] = useState("");
   };
 
   // ==========================================
-// DELETE ISSUE
-// DELETE /api/admin/problems/:id
-// ==========================================
+  // DELETE ISSUE
+  // DELETE /api/admin/problems/:id
+  // ==========================================
 
-const handleDeleteIssue = async () => {
-  if (!deleteIssue?._id) {
-    return;
-  }
-
-  if (!deletionReason.trim()) {
-    setDeleteError("Please enter a deletion reason.");
-    return;
-  }
-
-  try {
-    setDeleteLoading(true);
-    setDeleteError("");
-
-    const backendUrl =
-      import.meta.env.VITE_BACKEND_URL;
-
-    if (!backendUrl) {
-      setDeleteError(
-        "Backend URL is not configured."
-      );
+  const handleDeleteIssue = async () => {
+    if (!deleteIssue?._id) {
       return;
     }
 
-    const response = await axios.delete(
-      `${backendUrl}/api/admin/problems/${deleteIssue._id}`,
-      {
-        data: {
-          deletionReason: deletionReason.trim(),
-        },
-        withCredentials: true,
-      }
-    );
-
-    if (response.data?.success) {
-      // ======================================
-      // REMOVE FROM CURRENT LIST
-      // ======================================
-
-      setIssues((currentIssues) =>
-        currentIssues.filter(
-          (issue) =>
-            issue._id !== deleteIssue._id
-        )
-      );
-
-      // ======================================
-      // CLOSE MODAL
-      // ======================================
-
-      setDeleteIssue(null);
-      setDeletionReason("");
-      setDeleteError("");
-    } else {
-      setDeleteError(
-        response.data?.message ||
-          "Failed to delete issue."
-      );
+    if (!deletionReason.trim()) {
+      setDeleteError("Please enter a deletion reason.");
+      return;
     }
-  } catch (error) {
-    console.error(
-      "Delete issue error:",
-      error.response?.data ||
-        error.message
-    );
 
-    setDeleteError(
-      error.response?.data?.message ||
-        "Failed to delete issue."
-    );
-  } finally {
-    setDeleteLoading(false);
-  }
-};
+    try {
+      setDeleteLoading(true);
+      setDeleteError("");
+
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
+      if (!backendUrl) {
+        setDeleteError("Backend URL is not configured.");
+        return;
+      }
+
+      const response = await axios.delete(
+        `${backendUrl}/api/admin/problems/${deleteIssue._id}`,
+        {
+          data: {
+            deletionReason: deletionReason.trim(),
+          },
+          withCredentials: true,
+        }
+      );
+
+      if (response.data?.success) {
+        // ======================================
+        // REMOVE FROM CURRENT LIST
+        // ======================================
+
+        setIssues((currentIssues) =>
+          currentIssues.map((issue) =>
+            issue._id === deleteIssue._id
+              ? {
+                  ...issue,
+                  ...response.data.problem,
+                  isDeleted: true,
+                }
+              : issue
+          )
+        );
+
+        // ======================================
+        // CLOSE MODAL
+        // ======================================
+
+        setDeleteIssue(null);
+        setDeletionReason("");
+        setDeleteError("");
+      } else {
+        setDeleteError(response.data?.message || "Failed to delete issue.");
+      }
+    } catch (error) {
+      console.error(
+        "Delete issue error:",
+        error.response?.data || error.message
+      );
+
+      setDeleteError(
+        error.response?.data?.message || "Failed to delete issue."
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   // ==========================================
   // UI
@@ -267,17 +272,20 @@ const handleDeleteIssue = async () => {
             NO ISSUES
         ==================================== */}
 
-        {!loading && !error && issues.length === 0 && (
-          <div className="mt-5 text-sm text-slate-500">No issues found.</div>
-        )}
+        {!loading &&
+          !error &&
+          activeIssues.length === 0 &&
+          deletedIssues.length === 0 && (
+            <div className="mt-5 text-sm text-slate-500">No issues found.</div>
+          )}
 
         {/* ====================================
             ISSUES FROM BACKEND
         ==================================== */}
 
-        {!loading && !error && issues.length > 0 && (
+        {!loading && !error && activeIssues.length > 0 && (
           <div className="mt-5 space-y-3">
-            {issues.map((issue, index) => (
+            {activeIssues.map((issue, index) => (
               <div
                 key={issue._id || issue.id || index}
                 className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 p-4"
@@ -355,16 +363,16 @@ const handleDeleteIssue = async () => {
                 </Link>
 
                 <button
-  type="button"
-  onClick={() => {
-    setDeleteIssue(issue);
-    setDeletionReason("");
-    setDeleteError("");
-  }}
-  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
->
-  🗑 Delete
-</button>
+                  type="button"
+                  onClick={() => {
+                    setDeleteIssue(issue);
+                    setDeletionReason("");
+                    setDeleteError("");
+                  }}
+                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+                >
+                  🗑 Delete
+                </button>
 
                 {/* =========================
                     ARROW
@@ -376,132 +384,195 @@ const handleDeleteIssue = async () => {
           </div>
         )}
       </Panel>
-  {/* ==========================================
-    DELETE CONFIRMATION MODAL
+
+      {/* ==========================================
+    DELETED ISSUES
 ========================================== */}
 
-{deleteIssue && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+      {!loading && !error && deletedIssues.length > 0 && (
+        <div className="mt-6">
+          <div className="mb-3">
+            <h2 className="text-lg font-bold text-red-700">Deleted Issues</h2>
 
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <p className="mt-1 text-sm text-slate-500">
+              Issues removed by Super Admin
+            </p>
+          </div>
 
-      {/* HEADER */}
+          <div className="space-y-3">
+            {deletedIssues.map((issue, index) => (
+              <div
+                key={issue._id || issue.id || index}
+                className="rounded-xl border border-red-200 bg-red-50 p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  {/* ISSUE INFO */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-slate-400">
+                        #{issue._id ? issue._id.slice(-6) : index + 1}
+                      </span>
 
-      <div className="flex items-start gap-4">
+                      <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                        Deleted
+                      </span>
+                    </div>
 
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-50 text-xl">
-          🗑️
-        </div>
+                    <h3 className="mt-2 font-semibold text-slate-800">
+                      {issue.category || issue.title || "Unknown issue"}
+                    </h3>
 
-        <div>
-          <h2 className="text-lg font-bold text-slate-800">
-            Delete Issue
-          </h2>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {issue.description ||
+                        issue.problemDescription ||
+                        issue.details ||
+                        issue.problemDetails ||
+                        "No description provided"}
+                    </p>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Are you sure you want to remove this issue?
-          </p>
-        </div>
+                    <p className="mt-2 text-xs text-slate-400">
+                      Reported on {formatIssueDateTime(issue.createdAt)}
+                    </p>
 
-      </div>
+                    {issue.ward && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        Ward {issue.ward}
+                        {issue.district ? ` · ${issue.district}` : ""}
+                      </p>
+                    )}
 
-      {/* ISSUE INFO */}
+                    {/* DELETION REASON */}
+                    {issue.deletionReason && (
+                      <div className="mt-3 rounded-lg border border-red-200 bg-white p-3">
+                        <p className="text-xs font-semibold text-red-600">
+                          Reason for deletion
+                        </p>
 
-      <div className="mt-5 rounded-xl bg-slate-50 p-4">
+                        <p className="mt-1 text-sm text-slate-700">
+                          {issue.deletionReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-        <p className="text-xs font-bold text-slate-400">
-          ISSUE
-        </p>
+                  {/* DELETED DATE */}
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400">Deleted on</p>
 
-        <p className="mt-1 font-semibold text-slate-800">
-          {deleteIssue.category ||
-            deleteIssue.title ||
-            "Unknown issue"}
-        </p>
-
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          {deleteIssue.description ||
-            "No description provided"}
-        </p>
-
-      </div>
-
-      {/* REASON */}
-
-      <div className="mt-5">
-
-        <label
-          htmlFor="deletion-reason"
-          className="mb-2 block text-sm font-medium text-slate-700"
-        >
-          Reason for deletion
-        </label>
-
-        <textarea
-          id="deletion-reason"
-          value={deletionReason}
-          onChange={(e) => {
-            setDeletionReason(e.target.value);
-            setDeleteError("");
-          }}
-          rows={3}
-          maxLength={500}
-          placeholder="Enter reason for deleting this issue..."
-          className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
-        />
-
-        <p className="mt-1 text-right text-xs text-slate-400">
-          {deletionReason.length}/500
-        </p>
-
-      </div>
-
-      {/* ERROR */}
-
-      {deleteError && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {deleteError}
+                    <p className="mt-1 text-xs font-semibold text-red-600">
+                      {formatIssueDateTime(issue.deletedAt)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* BUTTONS */}
+      {/* ==========================================
+    DELETE CONFIRMATION MODAL
+========================================== */}
 
-      <div className="mt-6 flex justify-end gap-3">
+      {deleteIssue && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            {/* HEADER */}
 
-        <button
-          type="button"
-          disabled={deleteLoading}
-          onClick={() => {
-            setDeleteIssue(null);
-            setDeletionReason("");
-            setDeleteError("");
-          }}
-          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-        >
-          Cancel
-        </button>
+            <div className="flex items-start gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-50 text-xl">
+                🗑️
+              </div>
 
-        <button
-          type="button"
-          disabled={
-            deleteLoading ||
-            !deletionReason.trim()
-          }
-          onClick={handleDeleteIssue}
-          className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {deleteLoading
-            ? "Deleting..."
-            : "Delete Issue"}
-        </button>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">
+                  Delete Issue
+                </h2>
 
-      </div>
+                <p className="mt-1 text-sm text-slate-500">
+                  Are you sure you want to remove this issue?
+                </p>
+              </div>
+            </div>
 
-    </div>
+            {/* ISSUE INFO */}
 
-  </div>
-)}
+            <div className="mt-5 rounded-xl bg-slate-50 p-4">
+              <p className="text-xs font-bold text-slate-400">ISSUE</p>
 
+              <p className="mt-1 font-semibold text-slate-800">
+                {deleteIssue.category || deleteIssue.title || "Unknown issue"}
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {deleteIssue.description || "No description provided"}
+              </p>
+            </div>
+
+            {/* REASON */}
+
+            <div className="mt-5">
+              <label
+                htmlFor="deletion-reason"
+                className="mb-2 block text-sm font-medium text-slate-700"
+              >
+                Reason for deletion
+              </label>
+
+              <textarea
+                id="deletion-reason"
+                value={deletionReason}
+                onChange={(e) => {
+                  setDeletionReason(e.target.value);
+                  setDeleteError("");
+                }}
+                rows={3}
+                maxLength={500}
+                placeholder="Enter reason for deleting this issue..."
+                className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
+              />
+
+              <p className="mt-1 text-right text-xs text-slate-400">
+                {deletionReason.length}/500
+              </p>
+            </div>
+
+            {/* ERROR */}
+
+            {deleteError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {deleteError}
+              </div>
+            )}
+
+            {/* BUTTONS */}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={() => {
+                  setDeleteIssue(null);
+                  setDeletionReason("");
+                  setDeleteError("");
+                }}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={deleteLoading || !deletionReason.trim()}
+                onClick={handleDeleteIssue}
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleteLoading ? "Deleting..." : "Delete Issue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageFrame>
   );
 }
